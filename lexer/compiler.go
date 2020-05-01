@@ -1,11 +1,21 @@
+// Compiler produces the byte code control flow graph able to describe the
+// execution of a tokenizing FSM from a passed Regex string.
+
 package main
 
-// A fragment references a section of the Graph still being connected by a compiler.
+import (
+	"fmt"
+	"regexp"
+)
+
+// A fragment references a Graph section being connected by a compiler.
 type fragment struct {
 	start *State
 	out   *edgeList
 }
 
+// makeFragment returns an initilized Fragment.
+// if l1 is nil, a new edgeList refernecing s.edge is set for its 'out' field.
 func makeFragment(s *State, l1 *edgeList) fragment {
 	if l1 == nil {
 		l1 = makeEdgeList(s.edge)
@@ -16,12 +26,13 @@ func makeFragment(s *State, l1 *edgeList) fragment {
 	}
 }
 
-// An edgeList references a chain of dangling State edges in a Fragment.
+// An edgeList references a chain of dangling State edges in a fragment.
 type edgeList struct {
 	edge **State
 	next *edgeList
 }
 
+// makeEdgeList returns an initialized edgeList.
 func makeEdgeList(s *State) *edgeList {
 	return &edgeList{
 		edge: &s,
@@ -36,29 +47,32 @@ func (l1 *edgeList) patch(s *State) {
 	}
 }
 
+// Compile takes a regex string and returns a connected State Graph.
 func Compile(re string) *Graph {
-	var c compiler
-	c.init()
-	c.compile(re)
-	return c.g
+	c := makeCompiler(re)
+	return c.compile()
 }
 
-// A compiler takes a regex string and parses into a Graph.
+// A compiler holds the state required to connect the nodes in State Graph.
 type compiler struct {
 	ptr   int
+	graph *Graph
 	stack []fragment
-	g     *Graph
+	re    string
 }
 
-func (c *compiler) init() {
-	c.ptr = 0
-	c.stack = make([]fragment, 64)
-	c.g = makeGraph()
-	c.push(makeFragment(c.g.root, nil))
+// makeCompiler returns an initilized compiler.
+func makeCompiler(re string) *compiler {
+	return &Compiler{
+		ptr:   0,
+		graph: makeGraph(),
+		stack: make([]Fragment, len(re)),
+		re:    re,
+	}
 }
 
-func (c *compiler) compile(re string) {
-	for _, r := range re {
+func (c *compiler) compile() *Graph {
+	for _, r := range c.re {
 		switch r {
 		case '*':
 			e1 := c.pop()
@@ -75,6 +89,7 @@ func (c *compiler) compile(re string) {
 	c.cat()
 	f := c.pop()
 	f.out.patch(makeState(IMatch, nil, nil, 0))
+	return c.graph
 }
 
 func (c *compiler) push(f fragment) {
@@ -97,4 +112,6 @@ func (c *compiler) cat() {
 }
 
 func main() {
+	t, _ := regexp.Compile("aab+")
+	fmt.Println(t.Match([]byte{'a', 'a', 'b', 'b'}))
 }
