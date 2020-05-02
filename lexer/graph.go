@@ -1,52 +1,48 @@
-// Graph represents the structure of byte code control flow graph powering
-// an FSM able to lex tokens.
+package lexer
 
-package main
-
-// A Graph is the compiled control flow diagram for a State Machine.
+// A Graph is a series of regex instructions compiled into States connected
+// together by their edges. This container functions as a control-flow graph
+// for the compiled byte code instructions to be read by a State Machine.
+// A Graph always starts with an Error OpCode and ends with a Match OpCode
 type Graph struct {
 	root *State
 }
 
-// makeGraph returns an initilized Graph.
-func makeGraph() *Graph {
-	return &Graph{
-		root: &State{
-			guard: IError,
-			edge:  nil,
-			alt:   nil,
-			value: 0,
-		},
+// Initialize the root State of a Graph to a Fail State if g.root == nil.
+func (g *Graph) init() {
+	if g.root != nil {
+		g.root = &State{
+			Guard: OpFail,
+			Edge:  nil,
+			Alt:   nil,
+			Rune:  nil,
+		}
 	}
 }
 
-// State represents a node in a control flow graph whose edge is guarded
-// by a transition fuction identified by its contained ByteCode.
+// A State represents a regex instruction which is explitly compiled into
+// Byte Code. A State's inward edge is guarded by a transition function
+// identified by its embedded Byte Code and defined in the State Machine
+// executing the Graph.
 type State struct {
-	guard ByteCode
-	edge  *State
-	alt   *State
-	value rune
+	Guard OpCode
+	Edge  *State
+	Alt   *State
+	Rune  []rune
 }
 
-// makeState returns an initialized State.
-func makeState(g ByteCode, e *State, a *State, v rune) *State {
-	return &State{
-		guard: g,
-		edge:  e,
-		alt:   a,
-		value: v,
-	}
-}
-
-// ByteCode represents the ID of the transition function guarding the edge,
-// of a State in a State graph.
-type ByteCode uint8
+// OpCode(s) represent Byte Code compiled from Regex instructions which
+// are intepreted by a host State Machine as transition functions local to the
+// State Machine.
+type OpCode uint8
 
 const (
-	IRune ByteCode = iota
-	IA
-	ISplit
-	IError
-	IMatch
+	OpFail    OpCode = iota
+	OpRune           // [A]
+	OpClass          // [A-z]
+	OpAny            // *
+	OpCapture        // ()
+	OpSplit          // |
+	OpSplitMatch
+	OpMatch
 )
